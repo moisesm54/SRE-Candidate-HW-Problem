@@ -52,4 +52,22 @@ jobs:
           plan: "terraform\n${{steps.plan.outputs.stdout}}"
 
       - name: Terraform Apply
-        run: terraform applly -auto-approve
+        run: terraform apply -auto-approve
+
+      #Grabbing non compliance of a rule, bc if there is at least 1, we cannot send SLO meet e-mail.
+      - name: Rule Non-Compliance
+        run: aws configservice get-compliance-details-by-config-rule --config-rule-name test-tags --compliance-types NON_COMPLIANT > nc.txt
+
+      #Grabbing arn for topic that e-mails devops@uship.com
+      - name: Grab ARN for Devops Topic
+        id: topic
+        run: aws sns list-topics | grep -o "arn.*slo_meet_alert"
+
+      - name: E-mail DevOps for meeting SLO
+        uses: actions/github-script@0.9.0
+        env:
+          etopic: "${{steps.topic.outputs.stdout}}"
+        script: |
+          if ! grep -o 'NON_COMPLIANT' nc.txt; then
+            aws sns publish --target-arn ${{process.env.etopic}} --message "All EC2 instances are tag compliant."
+          fi

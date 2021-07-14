@@ -72,3 +72,31 @@ data "aws_ami" "ubuntu" {
   # Owner parameter needed and this is the one for the ubuntu one.
   owners = ["099720109477"]
 }
+
+### SNS Resources ###
+
+#Setup AWS SNS Topics
+
+resource "aws_sns_topic" "alert-topic" {
+  name = "noncompliance_alert"
+}
+
+resource "aws_sns_topic" "slo-topic" {
+  name = "slo_meet_alert"
+}
+
+#AWS SNS Topic Subscriptions
+
+resource "aws_sns_topic_subscription" "subscribe-noncompliance" {
+  topic_arn = aws_sns_topic.alert-topic.arn
+  protocol  = "email"
+  #Intended to send to people working with EC2 Instances
+  endpoint  = "[REPLACE WITH GROUP E-MAIL]"
+}
+
+resource "aws_sns_topic_subscription" "subscribe-slo" {
+  topic_arn = aws_sns_topic.slo-topic.arn
+  protocol  = "email"
+  #Intended to send to devops e-mail as requested for AC
+  endpoint  = "devops@uship.com"
+}

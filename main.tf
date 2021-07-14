@@ -100,3 +100,44 @@ resource "aws_sns_topic_subscription" "subscribe-slo" {
   #Intended to send to devops e-mail as requested for AC
   endpoint  = "devops@uship.com"
 }
+
+### IAM Resources ###
+
+#Setup AWS IAM Role
+
+resource "aws_iam_role" "config-role" {
+  name = "ConfigServiceRole"
+
+  assume_role_policy = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Action": "sts:AssumeRole",
+        #Mutable Principals. This was the only one that worked on my deployment.
+        #Aware of the vulnerabilities being public.
+        "Principal": {
+            "AWS": "*"
+          },
+        "Effect": "Allow",
+        "Sid": ""
+      }
+    ]
+  })
+}
+
+#Setup AWS IAM Role Policy
+resource "aws_iam_role_policy" "config-policy" {
+  name = "ConfigPolicy"
+  role = aws_iam_role.aws-config-role.id
+
+  policy = jsonencode({
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": "config:Put*",
+          "Effect": "Allow",
+          "Resource": "*"
+        }
+      ]
+    })
+}

@@ -1,0 +1,55 @@
+#Github Actions Pipeline
+
+name: Tag Standards
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+## Thought about adding a cron schedule too to run hourly or daily, but not needed
+#  schedule:
+#    - cron: '0 * * * *'
+
+jobs:
+  terraform:
+    name: "Terraform"
+    runs-on: ubuntu-latest # Or your preferred unix (or other) system
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          cli_config_credentials_token: ${{secrets.TF_API_TOKEN}}
+
+      - name: Setup AWS CLI
+        uses: aws-actions/conofigure-aws--credentials@v1
+        with:
+          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}
+          aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+          aws-region: "[REPLACE WITH PREFERRED REGION]"
+
+      - name: Terraform Initialization
+        run: terraform init
+
+      # This command was running into problems on pipeline, so debating leaving it.
+      - name: Terraform Format File
+        run: terraform fmt -check #Always good to have good format
+
+      - name: Terraform Validation
+        run: terraform validate
+
+      - name: Plan Migration for Apply Step
+        uses: actions/github-script@0.9.0
+        script: const output = `${process.env.plan}}`
+        env:
+          plan: "terraform\n${{steps.plan.outputs.stdout}}"
+
+      - name: Terraform Apply
+        run: terraform applly -auto-approve

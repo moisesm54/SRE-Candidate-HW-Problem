@@ -1,5 +1,5 @@
 ##Terraform Main File
-# Set up to be adapted for Terraform Cloud
+# Set up to be adapted for Terraform Cloud.
 
 terraform {
   required_providers {
@@ -140,4 +140,65 @@ resource "aws_iam_role_policy" "config-policy" {
         }
       ]
     })
+}
+
+### AWS Config Resources ###
+
+#Base AWS Config Rule
+
+resource "aws_config_config_rule" "tag-rule" {
+  name = "EC2-Required-Tags"
+  maximum_execution_frequency = "One_Hour"   #In case people are constantly adding/changing EC2
+  input_parameters = "{\"tag1Key\": \"Team\", \"tag1Value\": \"Red,Blue,Green,Yellow\"}"
+
+  #Limiting to just EC2 Monitoring
+  scope {
+    compliance_resource_types = ["AWS::EC2::Instance"]
+  }
+
+  #Setting the AWS Managed Rules rather than custom
+  source {
+    owner = "AWS"
+    source_identifier = "REQUIRED_TAGS"
+  }
+
+  depends_on = [aws_config_configuration_recorder.recorder]
+
+}
+
+#AWS Config Recorder
+
+resource "aws_config_configuration_recorder" "recorder" {
+  /*This is usually already created and limited to one
+  It was for my AWS, so I had set values here before modifying the for a brand new Config*/
+  name     = "default"
+  role_arn = aws_iam_role.config-role.arn
+}
+
+##AWS Config Remediation
+
+resource "aws_config_remediation_configuration" "remediation" {
+  
+  config_rule_name = aws_config_config_rule.tags.name
+  resource_type = "AWS::SNS::Topic"
+  target_id = "AWS-PublishSNSNotification" #Better known as action for remediation
+  target_type = "SSM_DOCUMENT" #Only possible value
+  target_version = "1"
+
+
+  parameter {
+    name         = "TopicArn"
+    static_value = aws_sns_topic.alert-topic.arn
+  }
+
+  # To identify the EC2 instance that is not compliant.
+  parameter {
+    name           = "Message"
+    resource_value = "RESOURCE_ID"
+  }
+
+  parameter {
+    name         = "AutomationAssumeRole"
+    static_value = aws_iam_role.aws-config-role.arn
+  }
 }
